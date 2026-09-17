@@ -64,3 +64,8 @@
 .announcement #announcementText[role="link"]{cursor:pointer;text-decoration:none}
 .announcement #announcementText[role="link"]:hover{text-decoration:underline}
 .announcement #announcementText[role="link"]:focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:4px}
+
+/* B24/D24 announcement must remain visible/clickable on every viewport when it has content. */
+.announcement #announcementText:not([hidden]) {
+  pointer-events: auto;
+}
