@@ -60,35 +60,71 @@
     if (event.key === 'Escape') closeMainNavDropdowns();
   });
 
-function sectionProgressHtml(extraClass = '', note = '') {
-  const noteHtml = note ? `<div class="lp-progress-note">${String(note).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}</div>` : '';
-  return `<div class="${extraClass} lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดข้อมูล"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress>${noteHtml}</div></div>`;
-}
-
 function getHeroOverlayProgressState(overlay) {
   if (!overlay) return null;
-  let wrap = overlay.querySelector('.hero-image-progress-wrap');
-  if (!wrap) {
-    const holder = document.createElement('div');
-    holder.innerHTML = sectionProgressHtml('hero-image-progress-wrap');
-    wrap = holder.firstElementChild;
-    overlay.appendChild(wrap);
+  if (overlay.__heroOverlayProgressState) {
+    return overlay.__heroOverlayProgressState;
   }
-  return { wrap, progress: wrap.querySelector('progress') };
+
+  const wrap = document.createElement('div');
+  wrap.className = 'hero-image-progress-wrap';
+  wrap.setAttribute('aria-live', 'polite');
+  wrap.hidden = true;
+  wrap.innerHTML = `
+    <span class="hero-image-progress-label">Loading...</span>
+    <progress class="hero-image-progress-bar" max="100" value="0"></progress>
+  `;
+
+  overlay.appendChild(wrap);
+
+  overlay.__heroOverlayProgressState = {
+    wrap,
+    progress: wrap.querySelector('progress'),
+    timer: null,
+    value: 0,
+    hideTimer: null
+  };
+
+  return overlay.__heroOverlayProgressState;
 }
 
 function showHeroOverlayProgress(overlay) {
   const state = getHeroOverlayProgressState(overlay);
   if (!state) return;
+
+  if (state.timer) clearInterval(state.timer);
+  if (state.hideTimer) clearTimeout(state.hideTimer);
+
+  state.value = 14;
+  state.progress.value = state.value;
   state.wrap.hidden = false;
-  if (window.LP360Progress) window.LP360Progress.restart(state.wrap, 8);
+
+  state.timer = setInterval(() => {
+    state.value = Math.min(92, state.value + (state.value < 50 ? 7 : state.value < 75 ? 4 : 2));
+    state.progress.value = state.value;
+    if (state.value >= 92) {
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+  }, 130);
 }
 
 function finishHeroOverlayProgress(overlay) {
   const state = getHeroOverlayProgressState(overlay);
   if (!state) return;
-  if (window.LP360Progress) window.LP360Progress.complete(state.wrap, 280);
-  else state.wrap.hidden = true;
+
+  if (state.timer) {
+    clearInterval(state.timer);
+    state.timer = null;
+  }
+  if (state.hideTimer) clearTimeout(state.hideTimer);
+
+  state.value = 100;
+  state.progress.value = 100;
+
+  state.hideTimer = setTimeout(() => {
+    state.wrap.hidden = true;
+  }, 320);
 }
 
 async function loadWebsiteImages() {
