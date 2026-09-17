@@ -40,13 +40,22 @@
       if ('hidden' in el) el.hidden = false;
       var value = Math.max(6, Math.min(40, Number(startValue) || Number(el.dataset.lpProgressStart) || 8));
       setValue(el, value);
-      el.__lpProgressTimer = setInterval(function () {
+
+      function tick() {
         if (!el.isConnected) { stop(el); return; }
-        var step = value < 42 ? 7 : value < 70 ? 4 : value < 86 ? 2 : 1;
-        value = Math.min(94, value + step);
+        if (value < 42) value = Math.min(42, value + 7);
+        else if (value < 70) value = Math.min(70, value + 4);
+        else if (value < 86) value = Math.min(86, value + 2);
+        else if (value < 94) value = Math.min(94, value + 1);
+        else if (value < 98) value += 1;
         setValue(el, value);
-        if (value >= 94) stop(el);
-      }, 180);
+
+        // ช่วงท้ายค่อย ๆ ขยับช้าลง ไม่หยุดค้างที่ 94% และไม่ขึ้น 100% ก่อนผลลัพธ์จริง
+        var delay = value < 70 ? 180 : value < 86 ? 260 : value < 94 ? 420 : 900;
+        el.__lpProgressTimer = setTimeout(tick, delay);
+      }
+
+      el.__lpProgressTimer = setTimeout(tick, 180);
     }
     function complete(el, hideAfter) {
       if (!el) return;
@@ -65,7 +74,30 @@
         restart(el);
       });
     }
-    window.LP360Progress = { init: init, restart: restart, complete: complete, setValue: setValue };
+    function findLoader(root) {
+      if (!root) return null;
+      if (root.matches && root.matches('[data-lp-progress]')) return root;
+      return root.querySelector ? root.querySelector('[data-lp-progress]') : null;
+    }
+    function finishAndSwap(root, render, delay) {
+      var loader = findLoader(root);
+      var run = typeof render === 'function' ? render : function () {};
+      if (!loader) { run(); return; }
+      complete(loader, -1);
+      var wait = Number.isFinite(Number(delay)) ? Number(delay) : 90;
+      // ให้ 100% ถูก paint อย่างน้อย 1 frame ก่อนแทนด้วยข้อมูล/empty/error
+      requestAnimationFrame(function () {
+        setTimeout(run, Math.max(0, wait));
+      });
+    }
+    window.LP360Progress = {
+      init: init,
+      restart: restart,
+      complete: complete,
+      setValue: setValue,
+      findLoader: findLoader,
+      finishAndSwap: finishAndSwap
+    };
     var observer = new MutationObserver(function (mutations) {
       mutations.forEach(function (mutation) {
         mutation.addedNodes.forEach(function (node) { if (node && node.nodeType === 1) init(node); });
@@ -1302,6 +1334,6 @@
     </div>
   </div>
 
-  <script defer src="index-fast.js?v=20260917-progress-v3"></script>
+  <script defer src="index-fast.js?v=20260917-progress-v4-finalize"></script>
 </body>
 </html>
