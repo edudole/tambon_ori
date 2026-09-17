@@ -77,6 +77,83 @@
   })();
   </script>
   <script>
+  // Hero progress = ข้อความ heroTitleText + รูป Hero
+  // หมายเหตุ: Image() ไม่เปิดเผย byte progress จึงนับเป็นสถานะงาน 2 ส่วน
+  (function () {
+    var state = { titleReady: false, imageReady: false, timer: null, value: 8 };
+
+    function loader() {
+      return document.querySelector('#websiteHeroOverlay .hero-image-progress-wrap[data-lp-progress]');
+    }
+    function setValue(value) {
+      var el = loader();
+      if (!el) return;
+      el.hidden = false;
+      state.value = Math.max(state.value, Math.min(100, Math.round(value)));
+      if (window.LP360Progress) window.LP360Progress.setValue(el, state.value);
+    }
+    function cap() {
+      if (state.titleReady && state.imageReady) return 100;
+      if (state.imageReady) return 82;
+      if (state.titleReady) return 42;
+      return 26;
+    }
+    function tick() {
+      var target = cap();
+      if (target >= 100) {
+        complete();
+        return;
+      }
+      if (state.value < target) setValue(Math.min(target, state.value + (state.value < 30 ? 3 : 2)));
+    }
+    function start() {
+      var el = loader();
+      if (!el) return;
+      el.hidden = false;
+      if (window.LP360Progress) {
+        window.LP360Progress.restart(el, Math.max(8, state.value));
+        // ปิด timer ทั่วไปเมื่อถึง cap แล้วใช้ coordinator คุมต่อ
+        setTimeout(function () {
+          if (el.__lpProgressTimer) {
+            clearInterval(el.__lpProgressTimer);
+            el.__lpProgressTimer = null;
+          }
+        }, 40);
+      }
+      if (!state.timer) state.timer = setInterval(tick, 180);
+      tick();
+    }
+    function complete() {
+      if (!(state.titleReady && state.imageReady)) return;
+      if (state.timer) { clearInterval(state.timer); state.timer = null; }
+      var el = loader();
+      if (!el) return;
+      if (window.LP360Progress) window.LP360Progress.complete(el, 300);
+      else el.hidden = true;
+      state.value = 100;
+    }
+    function mark(name) {
+      state[name] = true;
+      start();
+      if (state.titleReady && state.imageReady) complete();
+      else tick();
+    }
+
+    window.LP360HeroProgress = {
+      start: start,
+      titleReady: function () { mark('titleReady'); },
+      imageReady: function () { mark('imageReady'); },
+      getState: function () { return { titleReady: state.titleReady, imageReady: state.imageReady, value: state.value }; }
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start, { once: true });
+    } else {
+      start();
+    }
+  })();
+  </script>
+  <script>
     // FIRST-LOAD FAST 2026-09-17
     // 1) homecritical เริ่มพร้อม <head> เพื่อให้ Hero เริ่มดาวน์โหลดก่อน homefast ชุดใหญ่
     // 2) preload Hero ล่าสุดจาก cache ทันทีในครั้งถัดไป
@@ -1225,6 +1302,6 @@
     </div>
   </div>
 
-  <script defer src="index-fast.js?v=20260917-progress-v2"></script>
+  <script defer src="index-fast.js?v=20260917-progress-v3"></script>
 </body>
 </html>

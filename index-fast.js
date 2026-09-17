@@ -227,7 +227,7 @@
     const inflightKey = key || String(url);
     if (inflight.has(inflightKey)) return inflight.get(inflightKey);
 
-    const request = networkJson(url)
+    const request = networkJson(url, { forever: options.forever !== false })
       .then(result => {
         if (ttl > 0 && key) writeCache(key, result);
         return result;
@@ -287,11 +287,14 @@
 
   async function homePart(name) {
     try {
-      const result = await getHomeFast();
+      const result = await Promise.race([
+        getHomeFast(),
+        sleep(8000).then(() => { throw new Error('homefast section timeout'); })
+      ]);
       const data = result?.data || result || {};
       if (Object.prototype.hasOwnProperty.call(data, name)) return data[name];
     } catch (error) {
-      console.warn('homefast fallback:', error);
+      console.warn('homefast fallback:', name, error);
     }
 
     const fallbackModes = {
@@ -308,7 +311,8 @@
     const result = await fetchMode(mode, {}, {
       key: `home-part-${name}`,
       ttl: 5 * 60 * 1000,
-      staleTtl: 24 * 60 * 60 * 1000
+      staleTtl: 24 * 60 * 60 * 1000,
+      forever: false
     });
     if (name === 'activity') return result.activities || result.data || [];
     if (name === 'boss') return result.boss || result.data || result || {};
@@ -328,7 +332,8 @@
     return fetchJson(url.toString(), {
       key: cacheKey,
       ttl: Number(options.ttl || 0),
-      staleTtl: Number(options.staleTtl || 0)
+      staleTtl: Number(options.staleTtl || 0),
+      forever: options.forever !== false
     });
   }
 
@@ -357,8 +362,14 @@
         return;
       }
 
+      const fallbackTimer = setTimeout(() => {
+        observer.disconnect();
+        runOnce();
+      }, 2200);
+
       const observer = new IntersectionObserver(entries => {
         if (!entries.some(entry => entry.isIntersecting)) return;
+        clearTimeout(fallbackTimer);
         observer.disconnect();
         runOnce();
       }, { rootMargin });
@@ -490,7 +501,8 @@ function showHeroOverlayProgress(overlay) {
 function finishHeroOverlayProgress(overlay) {
   const state = getHeroOverlayProgressState(overlay);
   if (!state) return;
-  if (window.LP360Progress) window.LP360Progress.complete(state.wrap, 280);
+  if (window.LP360HeroProgress) window.LP360HeroProgress.imageReady();
+  else if (window.LP360Progress) window.LP360Progress.complete(state.wrap, 280);
   else state.wrap.hidden = true;
 }
 
@@ -860,6 +872,7 @@ function renderSettingMenus(items) {
 
       if (!newsSlides.length) {
         slider.classList.add('is-empty');
+        slidesBox.innerHTML = '<div class="news-loading">ยังไม่มีข่าวสาร</div>';
         return;
       }
 
@@ -1283,6 +1296,8 @@ async function openNewsPopup(item) {
       setOptionalText('footerPhone', footer.phone, 'โทร. ');
     } catch (error) {
       console.error('loadSiteContent error:', error);
+    } finally {
+      requestAnimationFrame(() => window.LP360HeroProgress?.titleReady());
     }
   }
 
@@ -1500,7 +1515,7 @@ async function getLayout(){
     }catch(e){console.warn('sectionLayout homefast fallback:',e)}
   }
   if(window.SiteFast?.fetchMode){
-    const j=await window.SiteFast.fetchMode('sectionlayout',{}, {key:'section-layout-v3',ttl:5*60*1000,staleTtl:24*60*60*1000});
+    const j=await window.SiteFast.fetchMode('sectionlayout',{}, {key:'section-layout-v3',ttl:5*60*1000,staleTtl:24*60*60*1000,forever:false});
     if(j?.success===false)throw new Error(j.message||'โหลดการจัดเรียง Section ไม่สำเร็จ');
     return normalize(j?.items||[]);
   }
@@ -1732,7 +1747,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       const url = new URL(API_URL);
       url.searchParams.set('mode', 'homeSummary');
       const response = window.SiteFast
-        ? await window.SiteFast.fetchMode('homeSummary', {}, { key: 'home-summary-v4', ttl: 5 * 60 * 1000, staleTtl: 24 * 60 * 60 * 1000 }).then(data => ({ ok: true, json: async () => data }))
+        ? await window.SiteFast.fetchMode('homeSummary', {}, { key: 'home-summary-v4', ttl: 5 * 60 * 1000, staleTtl: 24 * 60 * 60 * 1000, forever: false }).then(data => ({ ok: true, json: async () => data }))
         : await fetch(url.toString(), { cache: 'default' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -2251,7 +2266,7 @@ window.STUDENT_PROFILE_WEB_APP_URL =
         result = await window.SiteFast.fetchMode(
           'studentServiceTop3',
           {},
-          { key: 'studentServiceTop3:v2', ttl: CACHE_AGE }
+          { key: 'studentServiceTop3:v2', ttl: CACHE_AGE, forever: false }
         );
       } else {
         const separator = STUDENT_SERVICE_API_URL.includes('?') ? '&' : '?';
@@ -3476,7 +3491,7 @@ window.STUDENT_PROFILE_WEB_APP_URL =
 
   function render() {
     if (!courses.length) {
-      track.innerHTML = sectionProgressHtml('cliproom-loading');
+      track.innerHTML = '<div class="cliproom-loading">ยังไม่มีหลักสูตรที่เปิดใช้งาน</div>';
       const dots = document.getElementById('cliproomDots');
       if (dots) dots.innerHTML = '';
       return;
@@ -3610,6 +3625,12 @@ window.STUDENT_PROFILE_WEB_APP_URL =
         clearExecCache();
         const delay = retryDelay(attempt);
         console.warn(`Cliproom catalog retry #${attempt}:`, error);
+        if (attempt >= 3) {
+          if (!courses.length) {
+            track.innerHTML = '<div class="cliproom-loading">ไม่สามารถโหลดหลักสูตรได้ กรุณาลองใหม่อีกครั้ง</div>';
+          }
+          return;
+        }
         if (!courses.length) {
           track.innerHTML = sectionProgressHtml('cliproom-loading', `เชื่อมต่อไม่สำเร็จ ระบบจะลองใหม่อัตโนมัติ ครั้งที่ ${attempt}`);
         }
@@ -3638,7 +3659,7 @@ window.STUDENT_PROFILE_WEB_APP_URL =
   const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   const openShop=()=>window.open('shopactivity.html','_blank','noopener');
   const cardsPerPage=()=>window.innerWidth<=620?1:window.innerWidth<=900?2:3;
-  async function load(){try{let json;if(window.SiteFast){json=await window.SiteFast.fetchMode('learning',{action:'getActivities'},{key:'learning-activities-v1',ttl:120000})}else{const url=new URL(API_URL);url.searchParams.set('mode','learning');url.searchParams.set('action','getActivities');const response=await fetch(url.toString(),{cache:'default'});json=await response.json();if(!response.ok)throw new Error(`HTTP ${response.status}`)}if(json?.success===false)throw new Error(json?.message||'โหลดข้อมูลไม่สำเร็จ');items=Array.isArray(json?.data)?json.data:Array.isArray(json)?json:[];render();restart()}catch(error){track.innerHTML=`<div class="shopactivity-loading">โหลดกิจกรรมไม่สำเร็จ: ${esc(error.message)}</div>`}}
+  async function load(){try{let json;if(window.SiteFast){json=await window.SiteFast.fetchMode('learning',{action:'getActivities'},{key:'learning-activities-v1',ttl:120000,forever:false})}else{const url=new URL(API_URL);url.searchParams.set('mode','learning');url.searchParams.set('action','getActivities');const response=await fetch(url.toString(),{cache:'default'});json=await response.json();if(!response.ok)throw new Error(`HTTP ${response.status}`)}if(json?.success===false)throw new Error(json?.message||'โหลดข้อมูลไม่สำเร็จ');items=Array.isArray(json?.data)?json.data:Array.isArray(json)?json:[];render();restart()}catch(error){track.innerHTML=`<div class="shopactivity-loading">โหลดกิจกรรมไม่สำเร็จ: ${esc(error.message)}</div>`}}
   function render(){if(!items.length){track.innerHTML='<div class="shopactivity-loading">ยังไม่มีกิจกรรม</div>';return}track.innerHTML=items.map(item=>`<article class="shopactivity-card" tabindex="0" role="link" aria-label="เปิดกิจกรรม ${esc(item.title)}"><img class="shopactivity-image" src="${esc(item.image1||'')}" alt="${esc(item.title)}" loading="lazy"><div class="shopactivity-body"><h3>${esc(item.title)}</h3><div class="shopactivity-meta">Point: ${esc(item.hours||'0')} Point</div><div class="shopactivity-meta">รูปแบบ: ${esc(item.learningType||'-')}</div><div class="shopactivity-meta">วันที่: ${esc(item.activityDate||'-')}</div></div></article>`).join('');track.querySelectorAll('.shopactivity-card').forEach(card=>{card.onclick=openShop;card.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openShop()}}});update(true)}
   function update(reset){const old=perPage;perPage=cardsPerPage();if(reset||old!==perPage)page=0;const count=Math.max(1,Math.ceil(items.length/perPage));page=Math.max(0,Math.min(page,count-1));const card=track.querySelector('.shopactivity-card');if(card)track.style.transform=`translateX(-${page*perPage*(card.getBoundingClientRect().width+22)}px)`;const dots=document.getElementById('shopActivityDots');dots.innerHTML=Array.from({length:count},(_,i)=>`<button class="shopactivity-dot ${i===page?'active':''}" type="button" data-page="${i}" aria-label="หน้าที่ ${i+1}"></button>`).join('');dots.querySelectorAll('[data-page]').forEach(dot=>dot.onclick=()=>{page=Number(dot.dataset.page);update(false);restart()});document.getElementById('shopActivityPrev').disabled=page===0;document.getElementById('shopActivityNext').disabled=page===count-1}
   function move(step){const count=Math.max(1,Math.ceil(items.length/perPage));page=(page+step+count)%count;update(false);restart()}function restart(){clearInterval(timer);if(items.length>perPage)timer=setInterval(()=>move(1),6000)}
