@@ -4752,4 +4752,5 @@ body:not(.admin-edit-mode) .boss-carousel .boss-box-toolbar { display:none; }
 
 /* SECTION LOADING SPINNER 2026-09-17 */
 .section-loading-with-spinner{display:flex!important;align-items:center!important;justify-content:center!important;gap:11px!important}
+.section-loading-with-spinner[hidden]{display:none!important}
 .section-loading-spinner{display:inline-block;width:22px;height:22px;box-sizing:border-box;border:3px solid #cfe3f3;border-top-color:#0b73ce;border-radius:50%;animation:cliproomSpin .75s linear infinite;flex:0 0 22px;vertical-align:middle}
