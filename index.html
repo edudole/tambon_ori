@@ -49,9 +49,68 @@
         document.head.appendChild(link);
       }
 
-      function startHero(url) {
+      function ensureHeroProgressMarkup() {
+        var overlay = document.getElementById('websiteHeroOverlay');
+        if (!overlay) return null;
+        var wrap = overlay.querySelector('.hero-image-progress-wrap');
+        if (!wrap) {
+          wrap = document.createElement('div');
+          wrap.className = 'hero-image-progress-wrap';
+          wrap.setAttribute('aria-live', 'polite');
+          wrap.hidden = true;
+          wrap.innerHTML = '<span class="hero-image-progress-label">Loading...</span><progress class="hero-image-progress-bar" max="100" value="0"></progress>';
+          overlay.appendChild(wrap);
+        }
+        return {
+          wrap: wrap,
+          progress: wrap.querySelector('progress')
+        };
+      }
+
+      function showHeroProgress() {
+        var apply = function () {
+          var state = ensureHeroProgressMarkup();
+          if (!state) return;
+          if (window.__SITE_HERO_PROGRESS_TIMER) clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
+          if (window.__SITE_HERO_PROGRESS_HIDE_TIMER) clearTimeout(window.__SITE_HERO_PROGRESS_HIDE_TIMER);
+          var value = 14;
+          state.progress.value = value;
+          state.wrap.hidden = false;
+          window.__SITE_HERO_PROGRESS_TIMER = setInterval(function () {
+            value = Math.min(92, value + (value < 50 ? 7 : value < 75 ? 4 : 2));
+            state.progress.value = value;
+            if (value >= 92) {
+              clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
+              window.__SITE_HERO_PROGRESS_TIMER = null;
+            }
+          }, 130);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
+        else apply();
+      }
+
+      function finishHeroProgress() {
+        var apply = function () {
+          var state = ensureHeroProgressMarkup();
+          if (!state) return;
+          if (window.__SITE_HERO_PROGRESS_TIMER) {
+            clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
+            window.__SITE_HERO_PROGRESS_TIMER = null;
+          }
+          if (window.__SITE_HERO_PROGRESS_HIDE_TIMER) clearTimeout(window.__SITE_HERO_PROGRESS_HIDE_TIMER);
+          state.progress.value = 100;
+          window.__SITE_HERO_PROGRESS_HIDE_TIMER = setTimeout(function () {
+            state.wrap.hidden = true;
+          }, 320);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
+        else apply();
+      }
+
+            function startHero(url) {
         if (!url) return;
         window.__SITE_HERO_FAST_URL = url;
+        showHeroProgress();
         var img = new Image();
         try { img.fetchPriority = 'high'; img.decoding = 'async'; } catch (_) {}
         img.onload = function () {
@@ -64,6 +123,17 @@
             overlay.style.backgroundPosition = 'center';
             overlay.style.backgroundRepeat = 'no-repeat';
             overlay.classList.add('website-hero-ready');
+            finishHeroProgress();
+          };
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
+          else apply();
+        };
+        img.onerror = function () {
+          var apply = function () {
+            var overlay = document.getElementById('websiteHeroOverlay');
+            if (!overlay) return;
+            overlay.classList.add('website-hero-ready');
+            finishHeroProgress();
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
           else apply();
@@ -127,6 +197,42 @@
     opacity: 1;
     visibility: visible;
     transition: opacity 0.25s ease;
+  }
+
+  #websiteHeroOverlay .hero-image-progress-wrap {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    width: min(320px, calc(100% - 48px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.18);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 14px 34px rgba(0,0,0,.2);
+    z-index: 2;
+  }
+
+  #websiteHeroOverlay .hero-image-progress-wrap[hidden] {
+    display: none !important;
+  }
+
+  #websiteHeroOverlay .hero-image-progress-label {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  }
+
+  #websiteHeroOverlay .hero-image-progress-bar {
+    width: 100%;
+    height: 18px;
+    accent-color: #7da2ff;
   }
 
     /* ลดงาน layout/paint ของส่วนล่างที่ยังไม่อยู่ในจอ */
@@ -1085,6 +1191,6 @@
     </div>
   </div>
 
-  <script defer src="index-fast.js?v=20260917-firstload-image-v1"></script>
+  <script defer src="index-fast.js?v=20260917-hero-progress-v1"></script>
 </body>
 </html>
