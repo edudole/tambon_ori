@@ -10,17 +10,88 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://script.google.com" crossorigin>
   <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+  <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
+  <link rel="dns-prefetch" href="//lh3.googleusercontent.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
   <script>
-    // Cold load: เริ่ม homefast เร็วตั้งแต่ <head>.
-    // Repeat load: ใช้ cache เดิมแสดงผลก่อน แล้วรีเฟรชข้อมูลเบื้องหลัง เพื่อลดการยิง Apps Script ซ้ำ.
+    // FIRST-LOAD FAST 2026-09-17
+    // 1) homecritical เริ่มพร้อม <head> เพื่อให้ Hero เริ่มดาวน์โหลดก่อน homefast ชุดใหญ่
+    // 2) preload Hero ล่าสุดจาก cache ทันทีในครั้งถัดไป
+    // 3) homefast เดิมยังทำงานต่อครบทุก section
     (function () {
-      var cacheKey = 'LP360:TAMBOL:SITE_FAST:homefast-v12-announcement-central-b24-d24-20260915';
+      var NS = "LP360:TAMBOL:";
+      var API = window.APP_CONFIG.API_URL;
+      var cacheKey = NS + 'SITE_FAST:homefast-v13-first-image-20260917';
+      var heroKey = NS + 'CRITICAL_IMAGE:hero-v1';
       var maxAge = 24 * 60 * 60 * 1000;
       var admin = false;
-      try { admin = Boolean(sessionStorage.getItem('LP360:TAMBOL:mysiteAdminToken')); } catch (_) {}
+      try { admin = Boolean(sessionStorage.getItem(NS + 'mysiteAdminToken')); } catch (_) {}
+
+      function optimizedImage(url, width) {
+        url = String(url || '').trim();
+        if (!url) return '';
+        var match = url.match(/lh3\.googleusercontent\.com\/d\/([-\w]{25,})/i);
+        if (!match && /drive\.google\.com/i.test(url)) match = url.match(/[-\w]{25,}/);
+        if (!match) return url;
+        return 'https://lh3.googleusercontent.com/d/' + match[1] + '=w' + (width || 1800);
+      }
+
+      function preloadImage(url) {
+        if (!url || document.querySelector('link[data-lp360-hero-preload="1"]')) return;
+        var link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'image';
+        link.href = url;
+        link.setAttribute('fetchpriority', 'high');
+        link.setAttribute('data-lp360-hero-preload', '1');
+        document.head.appendChild(link);
+      }
+
+      function startHero(url) {
+        if (!url) return;
+        window.__SITE_HERO_FAST_URL = url;
+        var img = new Image();
+        try { img.fetchPriority = 'high'; img.decoding = 'async'; } catch (_) {}
+        img.onload = function () {
+          var apply = function () {
+            var overlay = document.getElementById('websiteHeroOverlay');
+            if (!overlay) return;
+            if (window.__SITE_HERO_FAST_URL !== url) return;
+            overlay.style.backgroundImage = 'linear-gradient(90deg,rgba(5,28,44,.96) 0%,rgba(5,28,44,.79) 40%,rgba(5,28,44,.1) 78%),url("' + url.replace(/"/g, '%22') + '")';
+            overlay.style.backgroundSize = 'cover';
+            overlay.style.backgroundPosition = 'center';
+            overlay.style.backgroundRepeat = 'no-repeat';
+            overlay.classList.add('website-hero-ready');
+          };
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
+          else apply();
+        };
+        img.src = url;
+      }
+
+      var cachedHero = '';
+      try { cachedHero = localStorage.getItem(heroKey) || ''; } catch (_) {}
+      if (cachedHero) { preloadImage(cachedHero); startHero(cachedHero); }
+
+      // Critical request ใช้เฉพาะครั้งแรก/โหมดผู้ดูแล; ครั้งถัดไปใช้ Hero cache ทันที
+      window.__SITE_HOMECRITICAL_PREFETCH = (!cachedHero || admin) ? fetch(API + '?mode=homecritical', {
+        method: 'GET', cache: 'default', credentials: 'omit'
+      }).then(function (response) {
+        return response.ok ? response.json() : null;
+      }).then(function (result) {
+        var data = result && result.success !== false ? (result.data || result) : null;
+        if (!data) return result;
+        var hero = optimizedImage(data.heroImage, 1800);
+        if (hero) {
+          preloadImage(hero);
+          startHero(hero);
+          try { localStorage.setItem(heroKey, hero); } catch (_) {}
+        }
+        return result;
+      }).catch(function () { return null; }) : Promise.resolve(null);
+
       function hasUsable(storage) {
         if (!storage) return false;
         try {
@@ -28,22 +99,28 @@
           return Boolean(saved && saved.savedAt && (Date.now() - saved.savedAt <= maxAge));
         } catch (_) { return false; }
       }
+
       if (!admin && (hasUsable(window.sessionStorage) || hasUsable(window.localStorage))) return;
+
       var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       var timer = controller ? setTimeout(function () { controller.abort(); }, 30000) : null;
-      window.__SITE_HOMEFAST_PREFETCH = fetch(
-        window.APP_CONFIG.API_URL + '?mode=homefast',
+      window.__SITE_HOMEFAST_PREFETCH = fetch(API + '?mode=homefast',
         { method: 'GET', cache: 'default', credentials: 'omit', signal: controller ? controller.signal : undefined }
       ).then(function (response) {
         return response.ok ? response.json() : null;
-      }).catch(function () { return null; }).finally(function () { if (timer) clearTimeout(timer); });
+      }).catch(function () {
+        return null;
+      }).finally(function () {
+        if (timer) clearTimeout(timer);
+      });
     })();
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
   #websiteHeroOverlay {
-    opacity: 0;
-    visibility: hidden;
+    opacity: 1;
+    visibility: visible;
+    background: linear-gradient(90deg,rgba(5,28,44,.96) 0%,rgba(5,28,44,.79) 40%,rgba(5,28,44,.1) 78%);
   }
 
   #websiteHeroOverlay.website-hero-ready {
@@ -1008,6 +1085,6 @@
     </div>
   </div>
 
-  <script defer src="index-fast.js?v=20260915-storage-limit-d15-1"></script>
+  <script defer src="index-fast.js?v=20260917-firstload-image-v1"></script>
 </body>
 </html>

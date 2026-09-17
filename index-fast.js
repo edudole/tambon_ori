@@ -11,7 +11,7 @@
   // - deduplicate requests
   // - limit parallel Apps Script reads to avoid cold-start congestion
   // - retry transient read failures until the connection succeeds
-  const HOMEFAST_CACHE_KEY = 'homefast-v12-announcement-central-b24-d24-20260915';
+  const HOMEFAST_CACHE_KEY = 'homefast-v13-first-image-20260917';
   const HOMEFAST_TTL = 5 * 60 * 1000;
   const HOMEFAST_STALE_TTL = 24 * 60 * 60 * 1000;
   const NETWORK_TIMEOUT = 45 * 1000;
@@ -48,6 +48,45 @@
     const payload = JSON.stringify({ savedAt: Date.now(), data });
     try { sessionStorage.setItem('LP360:TAMBOL:SITE_FAST:' + key, payload); } catch (_) {}
     try { localStorage.setItem('LP360:TAMBOL:SITE_FAST:' + key, payload); } catch (_) {}
+  }
+
+  // FIRST-LOAD IMAGE OPTIMIZER
+  // Google Drive/lh3 รูปต้นฉบับอาจมีหลาย MB: ขอขนาดที่เหมาะกับตำแหน่งแสดงผล
+  function fastImageUrl(value, width = 1200) {
+    const url = String(value || '').trim();
+    if (!url) return '';
+    const size = Math.max(96, Math.min(2400, Number(width) || 1200));
+    let match = url.match(/lh3\.googleusercontent\.com\/d\/([-\w]{25,})/i);
+    if (!match && /drive\.google\.com/i.test(url)) match = url.match(/[-\w]{25,}/);
+    if (!match) return url;
+    return `https://lh3.googleusercontent.com/d/${match[1]}=w${Math.round(size)}`;
+  }
+
+  function optimizeHomeFastPayload(payload) {
+    const root = payload && payload.data && typeof payload.data === 'object' ? payload.data : payload;
+    if (!root || typeof root !== 'object') return payload;
+
+    if (root.images) {
+      root.images.brandIcon = fastImageUrl(root.images.brandIcon, 320);
+      root.images.heroImage = fastImageUrl(root.images.heroImage, 1800);
+      if (Array.isArray(root.images.settingMenus)) {
+        root.images.settingMenus.forEach(item => { if (item) item.icon = fastImageUrl(item.icon, 320); });
+      }
+    }
+    const slides = root.news && Array.isArray(root.news.slides) ? root.news.slides : [];
+    slides.forEach(item => { if (item) item.image = fastImageUrl(item.image, 1200); });
+    if (Array.isArray(root.activity)) {
+      root.activity.forEach(item => { if (item) item.image = fastImageUrl(item.image, 900); });
+    }
+    if (root.boss) {
+      root.boss.image = fastImageUrl(root.boss.image, 640);
+      root.boss.popupImage = fastImageUrl(root.boss.popupImage, 1400);
+    }
+    if (root.studentLogin) {
+      root.studentLogin.logo = fastImageUrl(root.studentLogin.logo, 360);
+      root.studentLogin.banner = fastImageUrl(root.studentLogin.banner, 1200);
+    }
+    return payload;
   }
 
   function sleep(ms) {
@@ -208,13 +247,13 @@
 
     const fresh = readCache(HOMEFAST_CACHE_KEY, HOMEFAST_TTL);
     if (fresh) {
-      homeFastPromise = Promise.resolve(fresh.data);
+      homeFastPromise = Promise.resolve(optimizeHomeFastPayload(fresh.data));
       return homeFastPromise;
     }
 
     const stale = readCache(HOMEFAST_CACHE_KEY, HOMEFAST_STALE_TTL);
     if (stale) {
-      homeFastPromise = Promise.resolve(stale.data);
+      homeFastPromise = Promise.resolve(optimizeHomeFastPayload(stale.data));
       refreshHomeFastInBackground();
       return homeFastPromise;
     }
@@ -234,8 +273,9 @@
 
     homeFastPromise = request
       .then(result => {
-        writeCache(HOMEFAST_CACHE_KEY, result);
-        return result;
+        const optimized = optimizeHomeFastPayload(result);
+        writeCache(HOMEFAST_CACHE_KEY, optimized);
+        return optimized;
       })
       .catch(error => {
         homeFastPromise = null;
@@ -353,7 +393,8 @@
     homePart,
     whenNear,
     clear,
-    networkJson
+    networkJson,
+    imageUrl: fastImageUrl
   };
 
   getHomeFast().catch(error => console.warn('homefast initial:', error));
@@ -476,7 +517,7 @@ async function loadWebsiteImages() {
         .forEach(icon => {
           icon.textContent = '';
           icon.style.backgroundImage =
-            `url("${brandIconUrl}")`;
+            `url("${window.SiteFast?.imageUrl ? window.SiteFast.imageUrl(brandIconUrl, 320) : brandIconUrl}")`;
 
           icon.style.backgroundSize = 'cover';
           icon.style.backgroundPosition = 'center';
@@ -498,7 +539,12 @@ if (heroOverlayUrl) {
   const overlay = document.getElementById('websiteHeroOverlay');
 
   if (overlay) {
+    const heroFastUrl = window.SiteFast?.imageUrl
+      ? window.SiteFast.imageUrl(heroOverlayUrl, 1800)
+      : heroOverlayUrl;
     const heroImage = new Image();
+    heroImage.fetchPriority = 'high';
+    heroImage.decoding = 'async';
 
     heroImage.onload = () => {
       overlay.style.backgroundImage =
@@ -508,7 +554,7 @@ if (heroOverlayUrl) {
           rgba(5,28,44,.79) 40%,
           rgba(5,28,44,.1) 78%
         ),
-        url("${heroOverlayUrl}")`;
+        url("${heroFastUrl}")`;
 
       overlay.style.backgroundSize = 'cover';
       overlay.style.backgroundPosition = 'center';
@@ -521,7 +567,7 @@ if (heroOverlayUrl) {
       overlay.classList.add('website-hero-ready');
     };
 
-    heroImage.src = heroOverlayUrl;
+    heroImage.src = heroFastUrl;
   }
 }
 
@@ -1686,7 +1732,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 /* ===== profile-config.js ===== */
 window.STUDENT_PROFILE_WEB_APP_URL =
-  'https://script.google.com/macros/s/AKfycbwNB4dq0YXzd0Igk3KxXC_8vUG519Ceii8aZG3sc1nv2qYbzn4519K5LiYHCyl2Sfia9A/exec';
+  '';
 
 ;
 

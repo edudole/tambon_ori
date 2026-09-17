@@ -114,7 +114,7 @@ async function loadWebsiteImages() {
         .forEach(icon => {
           icon.textContent = '';
           icon.style.backgroundImage =
-            `url("${brandIconUrl}")`;
+            `url("${window.SiteFast?.imageUrl ? window.SiteFast.imageUrl(brandIconUrl, 320) : brandIconUrl}")`;
 
           icon.style.backgroundSize = 'cover';
           icon.style.backgroundPosition = 'center';
@@ -136,7 +136,12 @@ if (heroOverlayUrl) {
   const overlay = document.getElementById('websiteHeroOverlay');
 
   if (overlay) {
+    const heroFastUrl = window.SiteFast?.imageUrl
+      ? window.SiteFast.imageUrl(heroOverlayUrl, 1800)
+      : heroOverlayUrl;
     const heroImage = new Image();
+    heroImage.fetchPriority = 'high';
+    heroImage.decoding = 'async';
 
     heroImage.onload = () => {
       overlay.style.backgroundImage =
@@ -146,7 +151,7 @@ if (heroOverlayUrl) {
           rgba(5,28,44,.79) 40%,
           rgba(5,28,44,.1) 78%
         ),
-        url("${heroOverlayUrl}")`;
+        url("${heroFastUrl}")`;
 
       overlay.style.backgroundSize = 'cover';
       overlay.style.backgroundPosition = 'center';
@@ -159,7 +164,7 @@ if (heroOverlayUrl) {
       overlay.classList.add('website-hero-ready');
     };
 
-    heroImage.src = heroOverlayUrl;
+    heroImage.src = heroFastUrl;
   }
 }
 
