@@ -475,19 +475,26 @@
   });
 
 function sectionProgressHtml(extraClass = '', note = '') {
-  const noteHtml = note ? `<div class="lp-progress-note">${String(note).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}</div>` : '';
-  return `<div class="${extraClass} lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดข้อมูล"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress>${noteHtml}</div></div>`;
-}
+  const cls = String(extraClass || '').trim();
 
-function finishSectionProgress(root, render, delay = 90) {
-  const run = typeof render === 'function' ? render : () => {};
-  if (window.LP360Progress?.finishAndSwap) {
-    window.LP360Progress.finishAndSwap(root, run, delay);
-    return;
+  // คง <progress> ไว้เฉพาะ Hero เท่านั้น
+  if (cls.includes('hero-image-progress-wrap')) {
+    return `<div class="${cls} lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดภาพหน้าปกเว็บไซต์"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div>`;
   }
-  run();
-}
 
+  let message = 'กำลังโหลดข้อมูล...';
+  if (cls.includes('news-loading')) message = 'กำลังโหลดข่าวสาร...';
+  else if (cls.includes('user-box-loading')) message = 'กำลังโหลดรายการ User...';
+  else if (cls.includes('lsb-loading')) message = 'กำลังโหลดแหล่งเรียนรู้...';
+  else if (cls.includes('best-practice')) message = 'กำลังโหลด Best Practice...';
+  else if (cls.includes('fbpost')) message = 'กำลังโหลดโพสต์ Facebook...';
+  else if (cls.includes('cliproom-loading')) message = 'กำลังเชื่อมต่อระบบหลักสูตร...';
+  else if (cls.includes('shopactivity-loading')) message = 'กำลังโหลดกิจกรรม...';
+  else if (cls.includes('book-loading')) message = 'กำลังโหลดหนังสือน่าอ่าน...';
+  else if (cls.includes('button-section-loading')) message = 'กำลังโหลดรายการปุ่ม...';
+
+  return `<div class="${cls}">${message}</div>`;
+}
 function getHeroOverlayProgressState(overlay) {
   if (!overlay) return null;
   let wrap = overlay.querySelector('.hero-image-progress-wrap');
@@ -2840,7 +2847,7 @@ window.STUDENT_PROFILE_WEB_APP_URL =
     if (!status) return;
 
     status.hidden = false;
-    status.innerHTML = sectionProgressHtml('');
+    status.innerHTML = sectionProgressHtml('best-practice-loading');
     if (slider) slider.hidden = true;
 
     loadPromise = (async () => {
