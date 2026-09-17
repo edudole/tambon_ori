@@ -474,8 +474,11 @@ function getHeroOverlayProgressState(overlay) {
   wrap.setAttribute('aria-live', 'polite');
   wrap.hidden = true;
   wrap.innerHTML = `
-    <span class="hero-image-progress-label">Loading...</span>
-    <progress class="hero-image-progress-bar" max="100" value="0"></progress>
+    <div class="hero-image-progress-row">
+      <span class="hero-image-progress-label">Loading...</span>
+      <strong class="hero-image-progress-percent">0%</strong>
+    </div>
+    <progress class="hero-image-progress-bar" max="100" value="0">0%</progress>
   `;
 
   overlay.appendChild(wrap);
@@ -491,43 +494,27 @@ function getHeroOverlayProgressState(overlay) {
   return overlay.__heroOverlayProgressState;
 }
 
-function showHeroOverlayProgress(overlay) {
+function showHeroOverlayProgress(overlay, imageUrl) {
+  if (window.LP360HeroProgress) {
+    window.LP360HeroProgress.imageLoading(imageUrl);
+    return;
+  }
   const state = getHeroOverlayProgressState(overlay);
   if (!state) return;
-
-  if (state.timer) clearInterval(state.timer);
-  if (state.hideTimer) clearTimeout(state.hideTimer);
-
-  state.value = 14;
-  state.progress.value = state.value;
   state.wrap.hidden = false;
-
-  state.timer = setInterval(() => {
-    state.value = Math.min(92, state.value + (state.value < 50 ? 7 : state.value < 75 ? 4 : 2));
-    state.progress.value = state.value;
-    if (state.value >= 92) {
-      clearInterval(state.timer);
-      state.timer = null;
-    }
-  }, 130);
 }
 
-function finishHeroOverlayProgress(overlay) {
+function finishHeroOverlayProgress(overlay, imageUrl) {
+  if (window.LP360HeroProgress) {
+    window.LP360HeroProgress.imageReady(imageUrl);
+    return;
+  }
   const state = getHeroOverlayProgressState(overlay);
   if (!state) return;
-
-  if (state.timer) {
-    clearInterval(state.timer);
-    state.timer = null;
-  }
-  if (state.hideTimer) clearTimeout(state.hideTimer);
-
-  state.value = 100;
   state.progress.value = 100;
-
-  state.hideTimer = setTimeout(() => {
-    state.wrap.hidden = true;
-  }, 320);
+  const percent = state.wrap.querySelector('.hero-image-progress-percent');
+  if (percent) percent.textContent = '100%';
+  setTimeout(() => { state.wrap.hidden = true; }, 420);
 }
 
 async function loadWebsiteImages() {
@@ -613,7 +600,7 @@ if (heroOverlayUrl) {
     heroImage.fetchPriority = 'high';
     heroImage.decoding = 'async';
 
-    showHeroOverlayProgress(overlay);
+    showHeroOverlayProgress(overlay, heroFastUrl);
 
     heroImage.onload = () => {
       overlay.style.backgroundImage =
@@ -630,16 +617,21 @@ if (heroOverlayUrl) {
       overlay.style.backgroundRepeat = 'no-repeat';
 
       overlay.classList.add('website-hero-ready');
-      finishHeroOverlayProgress(overlay);
+      finishHeroOverlayProgress(overlay, heroFastUrl);
     };
 
     heroImage.onerror = () => {
       overlay.classList.add('website-hero-ready');
-      finishHeroOverlayProgress(overlay);
+      finishHeroOverlayProgress(overlay, heroFastUrl);
     };
 
     heroImage.src = heroFastUrl;
   }
+}
+
+if (!heroOverlayUrl && window.LP360HeroProgress) {
+  // ไม่มีรูปที่กำหนดก็ถือว่างานส่วนรูปจบแล้ว เพื่อไม่ให้ progress ค้าง
+  window.LP360HeroProgress.imageReady('');
 }
 
 function renderMainNavMenus(data) {
@@ -783,6 +775,8 @@ function renderSettingMenus(items) {
       'โหลด URL รูปภาพเว็บไซต์ไม่สำเร็จ:',
       error
     );
+    // request รูปจบด้วย error ก็ถือว่างานส่วนรูปจบ เพื่อไม่ให้ Hero progress ค้าง
+    window.LP360HeroProgress?.imageReady('');
   }
 }
 
@@ -1312,6 +1306,7 @@ async function openNewsPopup(item) {
 
       setOptionalText('heroKickerText', hero.kicker);
       setOptionalText('heroTitleText', hero.title);
+      window.LP360HeroProgress?.titleReady();
       setOptionalText('heroDescriptionText', hero.description);
       setOptionalText('footerDescription', footer.description);
       setOptionalText('footerOrganization', footer.organization);
@@ -1319,6 +1314,7 @@ async function openNewsPopup(item) {
       setOptionalText('footerPhone', footer.phone, 'โทร. ');
     } catch (error) {
       console.error('loadSiteContent error:', error);
+      window.LP360HeroProgress?.titleReady();
     }
   }
 

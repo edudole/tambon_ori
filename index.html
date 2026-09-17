@@ -58,59 +58,162 @@
           wrap.className = 'hero-image-progress-wrap';
           wrap.setAttribute('aria-live', 'polite');
           wrap.hidden = true;
-          wrap.innerHTML = '<span class="hero-image-progress-label">Loading...</span><progress class="hero-image-progress-bar" max="100" value="0"></progress>';
+          wrap.innerHTML = '<div class="hero-image-progress-row"><span class="hero-image-progress-label">Loading...</span><strong class="hero-image-progress-percent">0%</strong></div><progress class="hero-image-progress-bar" max="100" value="0">0%</progress>';
           overlay.appendChild(wrap);
         }
         return {
           wrap: wrap,
-          progress: wrap.querySelector('progress')
+          progress: wrap.querySelector('progress'),
+          percent: wrap.querySelector('.hero-image-progress-percent')
         };
       }
 
-      function showHeroProgress() {
-        var apply = function () {
-          var state = ensureHeroProgressMarkup();
-          if (!state) return;
-          if (window.__SITE_HERO_PROGRESS_TIMER) clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
-          if (window.__SITE_HERO_PROGRESS_HIDE_TIMER) clearTimeout(window.__SITE_HERO_PROGRESS_HIDE_TIMER);
-          var value = 14;
-          state.progress.value = value;
-          state.wrap.hidden = false;
-          window.__SITE_HERO_PROGRESS_TIMER = setInterval(function () {
-            value = Math.min(92, value + (value < 50 ? 7 : value < 75 ? 4 : 2));
-            state.progress.value = value;
-            if (value >= 92) {
-              clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
-              window.__SITE_HERO_PROGRESS_TIMER = null;
-            }
-          }, 130);
-        };
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
-        else apply();
-      }
+      // Hero progress นับงานจริง 2 ส่วน: heroTitleText 50% + รูป Hero 50%
+      // ระหว่างรอแต่ละงาน แถบจะค่อย ๆ วิ่ง แต่ 100% จะเกิดเมื่อทั้งสองส่วนจบแล้วเท่านั้น
+      (function createHeroProgressCoordinator() {
+        if (window.LP360HeroProgress) return;
 
-      function finishHeroProgress() {
-        var apply = function () {
-          var state = ensureHeroProgressMarkup();
-          if (!state) return;
-          if (window.__SITE_HERO_PROGRESS_TIMER) {
-            clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
-            window.__SITE_HERO_PROGRESS_TIMER = null;
+        var state = {
+          titleReady: false,
+          imageReady: false,
+          imageUrl: '',
+          value: 0,
+          timer: null,
+          hideTimer: null
+        };
+
+        function ui() {
+          return ensureHeroProgressMarkup();
+        }
+
+        function setValue(value) {
+          var parts = ui();
+          if (!parts) return;
+          var next = Math.max(state.value, Math.min(100, Math.round(value)));
+          state.value = next;
+          parts.progress.value = next;
+          parts.progress.textContent = next + '%';
+          if (parts.percent) parts.percent.textContent = next + '%';
+          parts.wrap.hidden = false;
+        }
+
+        function target() {
+          var completed = (state.titleReady ? 1 : 0) + (state.imageReady ? 1 : 0);
+          if (completed >= 2) return 100;
+          if (completed === 1) return 95;
+          return 45;
+        }
+
+        function stopTimer() {
+          if (!state.timer) return;
+          clearTimeout(state.timer);
+          state.timer = null;
+        }
+
+        function tick() {
+          var goal = target();
+          if (goal >= 100) {
+            complete();
+            return;
           }
-          if (window.__SITE_HERO_PROGRESS_HIDE_TIMER) clearTimeout(window.__SITE_HERO_PROGRESS_HIDE_TIMER);
-          state.progress.value = 100;
-          window.__SITE_HERO_PROGRESS_HIDE_TIMER = setTimeout(function () {
-            state.wrap.hidden = true;
-          }, 320);
+          if (state.value < goal) {
+            var step = state.value < 25 ? 4 : state.value < 50 ? 2 : state.value < 80 ? 2 : 1;
+            setValue(Math.min(goal, state.value + step));
+          }
+          state.timer = setTimeout(tick, state.value < 50 ? 150 : 260);
+        }
+
+        function start() {
+          var parts = ui();
+          if (!parts) return;
+          if (state.hideTimer) {
+            clearTimeout(state.hideTimer);
+            state.hideTimer = null;
+          }
+          parts.wrap.hidden = false;
+          if (state.value <= 0) setValue(4);
+          if (!state.timer) state.timer = setTimeout(tick, 100);
+        }
+
+        function complete() {
+          if (!(state.titleReady && state.imageReady)) return;
+          stopTimer();
+          setValue(100);
+          var parts = ui();
+          if (!parts) return;
+          if (state.hideTimer) clearTimeout(state.hideTimer);
+          state.hideTimer = setTimeout(function () {
+            if (parts.wrap) parts.wrap.hidden = true;
+          }, 420);
+        }
+
+        function titleReady() {
+          state.titleReady = true;
+          // heroTitleText = 50% ของงานทั้งหมด
+          if (state.value < 50) setValue(50);
+          start();
+          if (state.imageReady) complete();
+        }
+
+        function imageLoading(url) {
+          var normalized = String(url || '').trim();
+          if (normalized && normalized !== state.imageUrl) {
+            state.imageUrl = normalized;
+            state.imageReady = false;
+            // ถ้ากำลังเปลี่ยนรูปใหม่หลังจากเคยครบ 100% ให้เริ่มนับส่วนรูปใหม่
+            if (state.value >= 100) state.value = state.titleReady ? 50 : 0;
+          }
+          start();
+        }
+
+        function imageReady(url) {
+          var normalized = String(url || '').trim();
+          if (normalized && state.imageUrl && normalized !== state.imageUrl) return;
+          if (normalized) state.imageUrl = normalized;
+          state.imageReady = true;
+          // รูป Hero = อีก 50% ของงานทั้งหมด
+          if (!state.titleReady && state.value < 50) setValue(50);
+          start();
+          if (state.titleReady) complete();
+        }
+
+        window.LP360HeroProgress = {
+          start: start,
+          titleReady: titleReady,
+          imageLoading: imageLoading,
+          imageReady: imageReady,
+          getState: function () {
+            return {
+              titleReady: state.titleReady,
+              imageReady: state.imageReady,
+              imageUrl: state.imageUrl,
+              value: state.value
+            };
+          }
         };
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
-        else apply();
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', start, { once: true });
+        } else {
+          start();
+        }
+      })();
+
+      function showHeroProgress(url) {
+        if (window.LP360HeroProgress) window.LP360HeroProgress.imageLoading(url);
       }
 
-            function startHero(url) {
-        if (!url) return;
+      function finishHeroProgress(url) {
+        if (window.LP360HeroProgress) window.LP360HeroProgress.imageReady(url);
+      }
+
+      function startHero(url) {
+        if (!url) {
+          if (window.LP360HeroProgress) window.LP360HeroProgress.imageReady('');
+          return;
+        }
         window.__SITE_HERO_FAST_URL = url;
-        showHeroProgress();
+        showHeroProgress(url);
         var img = new Image();
         try { img.fetchPriority = 'high'; img.decoding = 'async'; } catch (_) {}
         img.onload = function () {
@@ -123,7 +226,7 @@
             overlay.style.backgroundPosition = 'center';
             overlay.style.backgroundRepeat = 'no-repeat';
             overlay.classList.add('website-hero-ready');
-            finishHeroProgress();
+            finishHeroProgress(url);
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
           else apply();
@@ -133,7 +236,7 @@
             var overlay = document.getElementById('websiteHeroOverlay');
             if (!overlay) return;
             overlay.classList.add('website-hero-ready');
-            finishHeroProgress();
+            finishHeroProgress(url);
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
           else apply();
@@ -219,6 +322,22 @@
 
   #websiteHeroOverlay .hero-image-progress-wrap[hidden] {
     display: none !important;
+  }
+
+  #websiteHeroOverlay .hero-image-progress-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  #websiteHeroOverlay .hero-image-progress-percent {
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,.35);
   }
 
   #websiteHeroOverlay .hero-image-progress-label {
@@ -1191,6 +1310,6 @@
     </div>
   </div>
 
-  <script defer src="index-fast.js?v=20260917-hero-progress-v1"></script>
+  <script defer src="index-fast.js?v=20260917-hero-title-image-v2"></script>
 </body>
 </html>
