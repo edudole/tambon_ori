@@ -16,6 +16,67 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
   <script>
+  // LP360 unified progress loader: native <progress> + percentage
+  (function () {
+    function getParts(el) {
+      if (!el) return null;
+      return { bar: el.querySelector('progress'), percent: el.querySelector('.lp-progress-percent') };
+    }
+    function setValue(el, value) {
+      var parts = getParts(el);
+      if (!parts || !parts.bar) return;
+      value = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+      parts.bar.value = value;
+      if (parts.percent) parts.percent.textContent = value + '%';
+    }
+    function stop(el) {
+      if (!el || !el.__lpProgressTimer) return;
+      clearInterval(el.__lpProgressTimer);
+      el.__lpProgressTimer = null;
+    }
+    function restart(el, startValue) {
+      if (!el) return;
+      stop(el);
+      if ('hidden' in el) el.hidden = false;
+      var value = Math.max(6, Math.min(40, Number(startValue) || Number(el.dataset.lpProgressStart) || 8));
+      setValue(el, value);
+      el.__lpProgressTimer = setInterval(function () {
+        if (!el.isConnected) { stop(el); return; }
+        var step = value < 42 ? 7 : value < 70 ? 4 : value < 86 ? 2 : 1;
+        value = Math.min(94, value + step);
+        setValue(el, value);
+        if (value >= 94) stop(el);
+      }, 180);
+    }
+    function complete(el, hideAfter) {
+      if (!el) return;
+      stop(el);
+      setValue(el, 100);
+      var delay = Number.isFinite(Number(hideAfter)) ? Number(hideAfter) : 260;
+      if (delay >= 0) setTimeout(function () { if (el.isConnected) el.hidden = true; }, delay);
+    }
+    function init(root) {
+      var nodes = [];
+      if (root && root.matches && root.matches('[data-lp-progress]')) nodes.push(root);
+      if (root && root.querySelectorAll) nodes = nodes.concat(Array.from(root.querySelectorAll('[data-lp-progress]')));
+      nodes.forEach(function (el) {
+        if (el.dataset.lpProgressReady === '1') return;
+        el.dataset.lpProgressReady = '1';
+        restart(el);
+      });
+    }
+    window.LP360Progress = { init: init, restart: restart, complete: complete, setValue: setValue };
+    var observer = new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) { if (node && node.nodeType === 1) init(node); });
+      });
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { init(document); }, { once: true });
+    else init(document);
+  })();
+  </script>
+  <script>
     // FIRST-LOAD FAST 2026-09-17
     // 1) homecritical เริ่มพร้อม <head> เพื่อให้ Hero เริ่มดาวน์โหลดก่อน homefast ชุดใหญ่
     // 2) preload Hero ล่าสุดจาก cache ทันทีในครั้งถัดไป
@@ -55,35 +116,23 @@
         var wrap = overlay.querySelector('.hero-image-progress-wrap');
         if (!wrap) {
           wrap = document.createElement('div');
-          wrap.className = 'hero-image-progress-wrap';
-          wrap.setAttribute('aria-live', 'polite');
-          wrap.hidden = true;
-          wrap.innerHTML = '<span class="hero-image-progress-label">Loading...</span><progress class="hero-image-progress-bar" max="100" value="0"></progress>';
+          wrap.className = 'hero-image-progress-wrap lp-progress-loader';
+          wrap.setAttribute('data-lp-progress', '');
+          wrap.setAttribute('data-lp-progress-start', '8');
+          wrap.setAttribute('role', 'status');
+          wrap.setAttribute('aria-label', 'กำลังโหลดภาพหน้าปกเว็บไซต์');
+          wrap.innerHTML = '<div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div>';
           overlay.appendChild(wrap);
         }
-        return {
-          wrap: wrap,
-          progress: wrap.querySelector('progress')
-        };
+        return { wrap: wrap, progress: wrap.querySelector('progress') };
       }
 
       function showHeroProgress() {
         var apply = function () {
           var state = ensureHeroProgressMarkup();
           if (!state) return;
-          if (window.__SITE_HERO_PROGRESS_TIMER) clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
-          if (window.__SITE_HERO_PROGRESS_HIDE_TIMER) clearTimeout(window.__SITE_HERO_PROGRESS_HIDE_TIMER);
-          var value = 14;
-          state.progress.value = value;
           state.wrap.hidden = false;
-          window.__SITE_HERO_PROGRESS_TIMER = setInterval(function () {
-            value = Math.min(92, value + (value < 50 ? 7 : value < 75 ? 4 : 2));
-            state.progress.value = value;
-            if (value >= 92) {
-              clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
-              window.__SITE_HERO_PROGRESS_TIMER = null;
-            }
-          }, 130);
+          if (window.LP360Progress) window.LP360Progress.restart(state.wrap, 8);
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
         else apply();
@@ -93,21 +142,14 @@
         var apply = function () {
           var state = ensureHeroProgressMarkup();
           if (!state) return;
-          if (window.__SITE_HERO_PROGRESS_TIMER) {
-            clearInterval(window.__SITE_HERO_PROGRESS_TIMER);
-            window.__SITE_HERO_PROGRESS_TIMER = null;
-          }
-          if (window.__SITE_HERO_PROGRESS_HIDE_TIMER) clearTimeout(window.__SITE_HERO_PROGRESS_HIDE_TIMER);
-          state.progress.value = 100;
-          window.__SITE_HERO_PROGRESS_HIDE_TIMER = setTimeout(function () {
-            state.wrap.hidden = true;
-          }, 320);
+          if (window.LP360Progress) window.LP360Progress.complete(state.wrap, 280);
+          else state.wrap.hidden = true;
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
         else apply();
       }
 
-            function startHero(url) {
+                  function startHero(url) {
         if (!url) return;
         window.__SITE_HERO_FAST_URL = url;
         showHeroProgress();
@@ -199,40 +241,38 @@
     transition: opacity 0.25s ease;
   }
 
-  #websiteHeroOverlay .hero-image-progress-wrap {
-    position: absolute;
-    left: 50%;
-    bottom: 24px;
-    transform: translateX(-50%);
-    width: min(320px, calc(100% - 48px));
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 16px;
-    background: rgba(255,255,255,.18);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 14px 34px rgba(0,0,0,.2);
-    z-index: 2;
+  .lp-progress-loader {
+    --lp-progress-color: var(--theme-indigo, var(--orange, #ff8467));
+    --lp-progress-color-2: var(--theme-cyan, var(--orange2, #ff6d4d));
+    width: 100% !important;
+    min-height: 128px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 22px !important;
+    color: var(--theme-ink, var(--text, #10212c));
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
-
-  #websiteHeroOverlay .hero-image-progress-wrap[hidden] {
-    display: none !important;
-  }
-
-  #websiteHeroOverlay .hero-image-progress-label {
-    font-size: 15px;
-    font-weight: 700;
-    color: #fff;
-    line-height: 1;
-    text-shadow: 0 1px 2px rgba(0,0,0,.35);
-  }
-
-  #websiteHeroOverlay .hero-image-progress-bar {
-    width: 100%;
-    height: 18px;
-    accent-color: #7da2ff;
+  .lp-progress-loader[hidden] { display: none !important; }
+  .lp-progress-shell { width: min(360px, 88%); display: flex; flex-direction: column; gap: 9px; }
+  .lp-progress-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; font: 700 14px/1.2 "Kanit", sans-serif; }
+  .lp-progress-percent { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: var(--lp-progress-color); }
+  .lp-progress-bar { appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 18px; overflow: hidden; border: 0; border-radius: 999px; background: rgba(148,163,184,.24); accent-color: var(--lp-progress-color); }
+  .lp-progress-bar::-webkit-progress-bar { background: rgba(148,163,184,.24); border-radius: 999px; }
+  .lp-progress-bar::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--lp-progress-color), var(--lp-progress-color-2)); transition: width .18s ease; }
+  .lp-progress-bar::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--lp-progress-color), var(--lp-progress-color-2)); }
+  .lp-progress-note { margin: 0; text-align: center; color: var(--theme-muted, var(--muted, #64748b)); font: 500 12px/1.35 "Kanit", sans-serif; }
+  #websiteHeroOverlay .hero-image-progress-wrap { position: absolute; z-index: 3; inset: 0; min-height: 100%; padding: 24px !important; background: rgba(5,28,44,.18) !important; backdrop-filter: blur(1.5px); }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-shell { width: min(370px, calc(100% - 48px)); padding: 14px 16px; border-radius: 18px; background: rgba(7,24,38,.66); box-shadow: 0 16px 38px rgba(0,0,0,.22); backdrop-filter: blur(8px); }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-row, #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-percent { color: #fff; }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-bar::-webkit-progress-bar { background: rgba(255,255,255,.26); }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-bar { background: rgba(255,255,255,.26); }
+  @media (max-width: 620px) {
+    .lp-progress-loader { min-height: 108px; padding: 16px !important; }
+    .lp-progress-shell { width: min(330px, 94%); }
+    #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-shell { width: min(330px, calc(100% - 28px)); }
   }
 
     /* ลดงาน layout/paint ของส่วนล่างที่ยังไม่อยู่ในจอ */
@@ -422,7 +462,7 @@
 
   <main>
     <section id="home" class="hero">
-      <div id="websiteHeroOverlay" class="hero-overlay"></div>
+      <div id="websiteHeroOverlay" class="hero-overlay"><div class="hero-image-progress-wrap lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดภาพหน้าปกเว็บไซต์"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div></div>
       <div id="editwebsite" class="editwebsite admin-only" aria-label="แก้ไขหน้าเว็บไซต์">
         <button class="editwebsite-btn" type="button" data-editwebsite="text"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>แก้ไขข้อความ</button>
         <button class="editwebsite-btn" type="button" data-editwebsite="image"><i class="fa-solid fa-image" aria-hidden="true"></i>แก้ไขโลโก้ ชื่อ รูปหัวเว็บไซต์</button>
@@ -498,7 +538,7 @@
         <div id="newsSlider" class="news-slider">
           <button id="manageNewsButton" class="editwebsite-btn news-manager-trigger admin-only" type="button"><i class="fa-solid fa-newspaper" aria-hidden="true"></i>จัดการข่าวสาร</button>
           <div id="newsSlides" class="news-slides">
-            <div class="news-loading">กำลังโหลดข่าวสาร...</div>
+            <div class="news-loading lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดข่าวสาร"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div>
           </div>
           <button id="newsPrev" class="news-arrow news-prev" type="button" aria-label="ข่าวก่อนหน้า">‹</button>
           <button id="newsNext" class="news-arrow news-next" type="button" aria-label="ข่าวถัดไป">›</button>
@@ -655,9 +695,7 @@
 
     <div class="lsb-box">
       <div id="lsbAreaGrid" class="lsb-area-grid">
-        <div class="lsb-loading">
-          กำลังโหลดแหล่งเรียนรู้...
-        </div>
+        <div class="lsb-loading lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดแหล่งเรียนรู้"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div>
       </div>
 
       <div id="lsbShowAllWrap" class="lsb-show-all-wrap" hidden>
@@ -693,9 +731,7 @@
       </div>
     </div>
 
-    <div id="bestPracticeBoxStatus" class="best-practice-box-status">
-      กำลังโหลด Best Practice...
-    </div>
+    <div id="bestPracticeBoxStatus" class="best-practice-box-status"><div class="lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลด Best Practice"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div></div>
 
     <div id="bestPracticeBoxSlider" class="best-practice-box-slider" hidden>
       <button id="bestPracticeBoxPrev" class="best-practice-box-arrow best-practice-box-prev" type="button" aria-label="Best Practice ก่อนหน้า">‹</button>
@@ -723,9 +759,7 @@
       </a>
     </div>
 
-    <div id="fbpostBoxStatus" class="fbpost-box-status">
-      กำลังโหลดโพสต์ Facebook...
-    </div>
+    <div id="fbpostBoxStatus" class="fbpost-box-status"><div class="lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดโพสต์ Facebook"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div></div>
 
     <div id="fbpostBoxGrid" class="fbpost-box-grid"></div>
   </div>
@@ -758,7 +792,7 @@
     </div>
     <div class="cliproom-slider">
       <button id="cliproomPrev" class="cliproom-arrow cliproom-prev" type="button" aria-label="หลักสูตรก่อนหน้า">‹</button>
-      <div class="cliproom-viewport"><div id="cliproomTrack" class="cliproom-track"><div class="cliproom-loading"><span class="cliproom-spinner"></span>กำลังโหลดหลักสูตร...</div></div></div>
+      <div class="cliproom-viewport"><div id="cliproomTrack" class="cliproom-track"><div class="cliproom-loading lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดหลักสูตร"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div></div></div>
       <button id="cliproomNext" class="cliproom-arrow cliproom-next" type="button" aria-label="หลักสูตรถัดไป">›</button>
       <div id="cliproomDots" class="cliproom-dots" aria-label="หน้ารายการหลักสูตร"></div>
     </div>
@@ -794,7 +828,7 @@
       <button id="shopActivityPrev" class="shopactivity-arrow shopactivity-prev" type="button" aria-label="กิจกรรมก่อนหน้า">‹</button>
       <div class="shopactivity-viewport">
         <div id="shopActivityTrack" class="shopactivity-track">
-          <div class="shopactivity-loading"><span class="shopactivity-spinner"></span>กำลังโหลดกิจกรรม...</div>
+          <div class="shopactivity-loading lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดกิจกรรม"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div>
         </div>
       </div>
       <button id="shopActivityNext" class="shopactivity-arrow shopactivity-next" type="button" aria-label="กิจกรรมถัดไป">›</button>
@@ -1191,6 +1225,6 @@
     </div>
   </div>
 
-  <script defer src="index-fast.js?v=20260917-hero-progress-v1"></script>
+  <script defer src="index-fast.js?v=20260917-progress-v2"></script>
 </body>
 </html>

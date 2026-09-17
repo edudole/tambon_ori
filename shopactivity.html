@@ -5,59 +5,107 @@
     <script src="app-config.js?v=20260901-central-api-1"></script>
 <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+  // LP360 unified progress loader: native <progress> + percentage
+  (function () {
+    function getParts(el) {
+      if (!el) return null;
+      return { bar: el.querySelector('progress'), percent: el.querySelector('.lp-progress-percent') };
+    }
+    function setValue(el, value) {
+      var parts = getParts(el);
+      if (!parts || !parts.bar) return;
+      value = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+      parts.bar.value = value;
+      if (parts.percent) parts.percent.textContent = value + '%';
+    }
+    function stop(el) {
+      if (!el || !el.__lpProgressTimer) return;
+      clearInterval(el.__lpProgressTimer);
+      el.__lpProgressTimer = null;
+    }
+    function restart(el, startValue) {
+      if (!el) return;
+      stop(el);
+      if ('hidden' in el) el.hidden = false;
+      var value = Math.max(6, Math.min(40, Number(startValue) || Number(el.dataset.lpProgressStart) || 8));
+      setValue(el, value);
+      el.__lpProgressTimer = setInterval(function () {
+        if (!el.isConnected) { stop(el); return; }
+        var step = value < 42 ? 7 : value < 70 ? 4 : value < 86 ? 2 : 1;
+        value = Math.min(94, value + step);
+        setValue(el, value);
+        if (value >= 94) stop(el);
+      }, 180);
+    }
+    function complete(el, hideAfter) {
+      if (!el) return;
+      stop(el);
+      setValue(el, 100);
+      var delay = Number.isFinite(Number(hideAfter)) ? Number(hideAfter) : 260;
+      if (delay >= 0) setTimeout(function () { if (el.isConnected) el.hidden = true; }, delay);
+    }
+    function init(root) {
+      var nodes = [];
+      if (root && root.matches && root.matches('[data-lp-progress]')) nodes.push(root);
+      if (root && root.querySelectorAll) nodes = nodes.concat(Array.from(root.querySelectorAll('[data-lp-progress]')));
+      nodes.forEach(function (el) {
+        if (el.dataset.lpProgressReady === '1') return;
+        el.dataset.lpProgressReady = '1';
+        restart(el);
+      });
+    }
+    window.LP360Progress = { init: init, restart: restart, complete: complete, setValue: setValue };
+    var observer = new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) { if (node && node.nodeType === 1) init(node); });
+      });
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { init(document); }, { once: true });
+    else init(document);
+  })();
+  </script>
   <meta name="description" content="เว็บไซต์ร้านหนังสือสไตล์ภาพประกอบ พร้อมใช้งานบน GitHub Pages" />
   <title>ช้อปกิจกรรม</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-
-  #websiteHeroOverlay {
-    opacity: 1;
-    visibility: visible;
-    background: linear-gradient(90deg,rgba(5,28,44,.96) 0%,rgba(5,28,44,.79) 40%,rgba(5,28,44,.1) 78%);
+  #websiteHeroOverlay { opacity:1; visibility:visible; background:linear-gradient(90deg,rgba(5,28,44,.96) 0%,rgba(5,28,44,.79) 40%,rgba(5,28,44,.1) 78%); }
+  #websiteHeroOverlay.website-hero-ready { opacity:1; visibility:visible; transition:opacity .25s ease; }
+  .lp-progress-loader {
+    --lp-progress-color: var(--theme-indigo, var(--orange, #ff8467));
+    --lp-progress-color-2: var(--theme-cyan, var(--orange2, #ff6d4d));
+    width: 100% !important;
+    min-height: 128px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 22px !important;
+    color: var(--theme-ink, var(--text, #10212c));
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
-
-  #websiteHeroOverlay.website-hero-ready {
-    opacity: 1;
-    visibility: visible;
-    transition: opacity 0.25s ease;
-  }
-
-  #websiteHeroOverlay .hero-image-progress-wrap {
-    position: absolute;
-    left: 50%;
-    bottom: 24px;
-    transform: translateX(-50%);
-    width: min(320px, calc(100% - 48px));
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 16px;
-    background: rgba(255,255,255,.18);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 14px 34px rgba(0,0,0,.2);
-    z-index: 2;
-  }
-
-  #websiteHeroOverlay .hero-image-progress-wrap[hidden] {
-    display: none !important;
-  }
-
-  #websiteHeroOverlay .hero-image-progress-label {
-    font-size: 15px;
-    font-weight: 700;
-    color: #fff;
-    line-height: 1;
-    text-shadow: 0 1px 2px rgba(0,0,0,.35);
-  }
-
-  #websiteHeroOverlay .hero-image-progress-bar {
-    width: 100%;
-    height: 18px;
-    accent-color: #7da2ff;
+  .lp-progress-loader[hidden] { display: none !important; }
+  .lp-progress-shell { width: min(360px, 88%); display: flex; flex-direction: column; gap: 9px; }
+  .lp-progress-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; font: 700 14px/1.2 "Kanit", sans-serif; }
+  .lp-progress-percent { min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: var(--lp-progress-color); }
+  .lp-progress-bar { appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 18px; overflow: hidden; border: 0; border-radius: 999px; background: rgba(148,163,184,.24); accent-color: var(--lp-progress-color); }
+  .lp-progress-bar::-webkit-progress-bar { background: rgba(148,163,184,.24); border-radius: 999px; }
+  .lp-progress-bar::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, var(--lp-progress-color), var(--lp-progress-color-2)); transition: width .18s ease; }
+  .lp-progress-bar::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, var(--lp-progress-color), var(--lp-progress-color-2)); }
+  .lp-progress-note { margin: 0; text-align: center; color: var(--theme-muted, var(--muted, #64748b)); font: 500 12px/1.35 "Kanit", sans-serif; }
+  #websiteHeroOverlay .hero-image-progress-wrap { position: absolute; z-index: 3; inset: 0; min-height: 100%; padding: 24px !important; background: rgba(5,28,44,.18) !important; backdrop-filter: blur(1.5px); }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-shell { width: min(370px, calc(100% - 48px)); padding: 14px 16px; border-radius: 18px; background: rgba(7,24,38,.66); box-shadow: 0 16px 38px rgba(0,0,0,.22); backdrop-filter: blur(8px); }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-row, #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-percent { color: #fff; }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-bar::-webkit-progress-bar { background: rgba(255,255,255,.26); }
+  #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-bar { background: rgba(255,255,255,.26); }
+  @media (max-width: 620px) {
+    .lp-progress-loader { min-height: 108px; padding: 16px !important; }
+    .lp-progress-shell { width: min(330px, 94%); }
+    #websiteHeroOverlay .hero-image-progress-wrap .lp-progress-shell { width: min(330px, calc(100% - 28px)); }
   }
 </style>
 <style>
@@ -246,7 +294,7 @@
 
   <main>
     <section id="home" class="hero">
-      <div id="websiteHeroOverlay" class="hero-overlay"></div>
+      <div id="websiteHeroOverlay" class="hero-overlay"><div class="hero-image-progress-wrap lp-progress-loader" data-lp-progress data-lp-progress-start="8" role="status" aria-label="กำลังโหลดภาพหน้าปกเว็บไซต์"><div class="lp-progress-shell"><div class="lp-progress-row"><span>Loading...</span><strong class="lp-progress-percent">8%</strong></div><progress class="lp-progress-bar" max="100" value="8">8%</progress></div></div></div>
       <div class="container hero-content">
         <div class="eyebrow">อ่าน • เรียนรู้ • สร้างแรงบันดาลใจ</div>
         <h1><span id="heroTitleLine1"></span><br><span id="heroTitleLine2"></span></h1>
@@ -488,7 +536,7 @@
     <div class="copyright">© 2026 Book Store. All rights reserved.</div>
   </footer>
 
-<script src="script.js?v=20260917-hero-progress-v1"></script>
+<script src="script.js?v=20260917-progress-v2"></script>
 <script src="learning-source-box.js?v=20260808-4"></script>
   <script src="activity-box.js?v=20260724-1"></script>
   <script src="boss-box.js?v=20260901-team-carousel-compat-1"></script>
