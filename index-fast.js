@@ -1487,10 +1487,10 @@ async function openNewsPopup(item) {
 const API=window.APP_CONFIG.API_URL;
 const builtins=[
   {id:'studentServicesBox',kind:'builtin',title:'บริการนักศึกษา',visible:true},
-  {id:'readBookTimeBox',kind:'builtin',title:'อ่านหนังสือสะสมเวลา',visible:true},
   {id:'learningSourceBox',kind:'builtin',title:'แหล่งเรียนรู้',visible:true},
   {id:'bestPracticeBox',kind:'builtin',title:'Best Practice',visible:true},
   {id:'FBpostBox',kind:'builtin',title:'Facebook',visible:true},
+  {id:'readBookTimeBox',kind:'builtin',title:'อ่านหนังสือสะสมเวลา',visible:true},
   {id:'cliproomBox',kind:'builtin',title:'หลักสูตรออนไลน์',visible:true},
   {id:'learningBaseModule',kind:'builtin',title:'ช้อปกิจกรรม',visible:true}
 ];
@@ -1521,7 +1521,9 @@ function normalize(items){
   const incoming=Array.isArray(items)?items:[];
   const out=[],seen=new Set();
   incoming.forEach(raw=>{const item=normalizeItem(raw);if(item&&!seen.has(item.id)){seen.add(item.id);out.push(item)}});
-  builtins.forEach(base=>{if(seen.has(base.id))return;if(base.id==='readBookTimeBox'){const at=out.findIndex(item=>item.id==='studentServicesBox');if(at>=0)out.splice(at+1,0,{...base});else out.unshift({...base});}else out.push({...base})});
+  builtins.forEach(base=>{if(seen.has(base.id))return;out.push({...base})});
+  const rb=out.findIndex(item=>item.id==='readBookTimeBox');
+  if(rb>=0){const [item]=out.splice(rb,1);const cp=out.findIndex(x=>x.id==='cliproomBox');if(cp>=0)out.splice(cp,0,item);else out.push(item)}
   return out;
 }
 async function getLayout(){
