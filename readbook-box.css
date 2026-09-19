@@ -1,0 +1,83 @@
+.readbook-section{
+  padding:52px 0;
+  background:
+    radial-gradient(circle at 92% 7%,rgba(251,191,36,.18),transparent 28%),
+    radial-gradient(circle at 4% 90%,rgba(16,185,129,.12),transparent 31%),
+    linear-gradient(145deg,#f5fbf7 0%,#fff 55%,#fff8e8 100%);
+  overflow:hidden;
+}
+.readbook-admin-actions{display:flex;align-items:center;justify-content:center;margin:0 0 18px}
+.readbook-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:24px}
+.readbook-heading h2{margin:7px 0 4px;color:#14532d;font-size:clamp(26px,3vw,38px)}
+.readbook-heading p{margin:0;color:#617269;max-width:760px}
+.readbook-open-all{background:linear-gradient(135deg,#15803d,#16a34a);box-shadow:0 8px 20px rgba(21,128,61,.22)}
+.readbook-open-all:hover{filter:brightness(.97);transform:translateY(-1px)}
+.readbook-slider{position:relative;padding:0 48px 34px}
+.readbook-viewport{overflow:hidden;border-radius:20px}
+.readbook-track{display:flex;gap:18px;transition:transform .45s cubic-bezier(.2,.7,.2,1);will-change:transform;min-height:380px}
+.readbook-card{
+  flex:0 0 calc((100% - 54px)/4);
+  min-width:0;
+  background:#fff;
+  border:1px solid #dce9e1;
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 12px 30px rgba(20,83,45,.09);
+  cursor:pointer;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+.readbook-card:hover{transform:translateY(-5px);box-shadow:0 18px 38px rgba(20,83,45,.16);border-color:#bbddc7}
+.readbook-cover{
+  position:relative;
+  display:block;
+  aspect-ratio:2/3;
+  background:linear-gradient(145deg,#166534,#2f7259 62%,#d6a646);
+  overflow:hidden;
+}
+.readbook-cover img{width:100%;height:100%;display:block;object-fit:cover;transition:transform .32s ease}
+.readbook-card:hover .readbook-cover img{transform:scale(1.035)}
+.readbook-cover-placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:18px;color:#fff}
+.readbook-cover-placeholder i{font-size:44px;margin-bottom:10px;display:block}
+.readbook-cover-placeholder span{font-weight:700;line-height:1.4}
+.readbook-body{padding:15px 16px 18px;text-align:center}
+.readbook-body h3{margin:0;color:#173d29;font-size:17px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:49px}
+.readbook-body small{display:block;margin-top:7px;color:#7c8d84;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.readbook-arrow{position:absolute;top:44%;z-index:3;width:40px;height:40px;border:0;border-radius:50%;background:#fff;color:#15803d;font-size:28px;box-shadow:0 5px 18px rgba(20,83,45,.18);cursor:pointer}
+.readbook-arrow:hover:not(:disabled){background:#f0fdf4}
+.readbook-arrow:disabled{opacity:.3;cursor:default}
+.readbook-prev{left:0}.readbook-next{right:0}
+.readbook-dots{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:8px}
+.readbook-dot{width:9px;height:9px;padding:0;border:0;border-radius:20px;background:#bdd2c5;cursor:pointer;transition:.2s}
+.readbook-dot.active{width:27px;background:#15803d}
+.readbook-loading{
+  flex:1;
+  min-height:365px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:11px;
+  color:#617269;
+  background:#fff;
+  border:1px dashed #c9ddd0;
+  border-radius:18px;
+  text-align:center;
+  padding:30px;
+}
+.readbook-spinner{width:22px;height:22px;flex:0 0 auto;border:3px solid #d6eadc;border-top-color:#15803d;border-radius:50%;animation:readbookSpin .75s linear infinite}
+@keyframes readbookSpin{to{transform:rotate(360deg)}}
+.readbook-error{flex-direction:column;gap:8px}
+.readbook-retry{margin-top:8px;border:0;border-radius:10px;background:#15803d;color:#fff;padding:9px 15px;font-weight:700;cursor:pointer}
+@media(max-width:1050px){.readbook-card{flex-basis:calc((100% - 36px)/3)}}
+@media(max-width:900px){.readbook-card{flex-basis:calc((100% - 18px)/2)}}
+@media(max-width:620px){
+  .readbook-section{padding:38px 0}
+  .readbook-admin-actions{margin-bottom:14px}
+  .readbook-admin-actions .editwebsite-btn{width:100%}
+  .readbook-heading{align-items:flex-start;flex-direction:column}
+  .readbook-open-all{width:100%}
+  .readbook-slider{padding:0 0 42px}
+  .readbook-card{flex-basis:100%}
+  .readbook-track{min-height:430px}
+  .readbook-arrow{top:auto;bottom:0;width:36px;height:36px}
+  .readbook-prev{left:8px}.readbook-next{right:8px}
+}

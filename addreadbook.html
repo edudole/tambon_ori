@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>จัดการหนังสือสะสมเวลา</title>
+  <script src="app-config.js"></script>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;font-family:Tahoma,"Noto Sans Thai",sans-serif;background:#f5f7f6;color:#183b28}
+    body{display:flex;flex-direction:column;min-height:100vh}.bar{height:62px;flex:0 0 62px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 18px;background:#fff;border-bottom:1px solid #eadede;box-shadow:0 3px 16px #3b171710;z-index:3}.brand{display:flex;align-items:center;gap:10px;min-width:0}.brand i{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#dc2626;color:#fff;font-style:normal}.brand strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actions{display:flex;gap:8px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 13px;border:0;border-radius:9px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;cursor:pointer}.btn.alt{background:#fff1f2;color:#b91c1c}.frame-wrap{position:relative;flex:1;min-height:0}.frame{display:block;width:100%;height:100%;border:0;background:#fff}.state{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:#faf7f7;padding:24px}.state-card{width:min(540px,92vw);padding:26px;border:1px solid #eadede;border-radius:18px;background:#fff;text-align:center;box-shadow:0 16px 44px #3b171714}.spinner{width:34px;height:34px;margin:0 auto 14px;border:4px solid #f2dddd;border-top-color:#dc2626;border-radius:50%;animation:spin .75s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.state p{margin:8px 0 0;color:#786868;line-height:1.6}.hidden{display:none!important}@media(max-width:600px){.bar{height:56px;flex-basis:56px;padding:0 10px}.brand i{width:34px;height:34px}.brand strong{font-size:14px}.btn{font-size:12px;padding:7px 10px}.btn.alt{display:none}}
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <div class="brand"><i>✎</i><strong>จัดการหนังสือสะสมเวลา</strong></div>
+    <div class="actions"><a class="btn alt" href="index.html">กลับเว็บไซต์</a><a id="openFull" class="btn hidden" href="#" target="_blank" rel="noopener">เปิด Dashboard เต็มจอ</a></div>
+  </header>
+  <div class="frame-wrap">
+    <div id="state" class="state"><div class="state-card"><div class="spinner"></div><strong id="stateTitle">กำลังเปิดระบบหลังบ้าน...</strong><p id="stateText">ระบบจะเปิด URL จาก Sheet!D26 พร้อม ?page=admin</p></div></div>
+    <iframe id="adminFrame" class="frame" title="Dashboard ระบบอ่านหนังสือสะสมเวลา" allow="fullscreen" referrerpolicy="no-referrer"></iframe>
+  </div>
+<script>
+(() => {
+  'use strict';
+  const MAIN_API_URL=(window.APP_CONFIG&&window.APP_CONFIG.API_URL)||'';
+  const state=document.getElementById('state'),title=document.getElementById('stateTitle'),text=document.getElementById('stateText'),frame=document.getElementById('adminFrame'),openFull=document.getElementById('openFull');
+  function jsonp(base,params){return new Promise((resolve,reject)=>{const cb='__addreadbookPage_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');let done=false,t;const clean=()=>{clearTimeout(t);try{delete window[cb]}catch(_){window[cb]=undefined}if(s.parentNode)s.remove()};const finish=(ok,v)=>{if(done)return;done=true;clean();ok?resolve(v):reject(v)};window[cb]=v=>finish(true,v);try{const u=new URL(base);Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k,v));u.searchParams.set('callback',cb);u.searchParams.set('_t',Date.now());s.src=u;s.async=true;s.onerror=()=>finish(false,new Error('เชื่อมต่อ Apps Script ไม่สำเร็จ'));t=setTimeout(()=>finish(false,new Error('Apps Script ใช้เวลาตอบกลับนานเกินไป')),30000);document.head.appendChild(s)}catch(e){finish(false,e)}})}
+  async function start(){try{if(!MAIN_API_URL)throw new Error('ไม่พบ URL Apps Script หลักของเว็บไซต์ตำบล');const r=await jsonp(MAIN_API_URL,{mode:'readbookexec'});if(!r||r.success!==true)throw new Error((r&&r.message)||'อ่าน URL ระบบไม่สำเร็จ');const exec=String(r.url||'').trim();if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/?#]+\/exec(?:[?#].*)?$/i.test(exec))throw new Error('URL ที่ Sheet!D26 ไม่ใช่ Apps Script /exec');const u=new URL(exec);u.searchParams.set('page','admin');const adminUrl=u.toString();openFull.href=adminUrl;openFull.classList.remove('hidden');frame.src=adminUrl;frame.addEventListener('load',()=>state.classList.add('hidden'),{once:true});setTimeout(()=>state.classList.add('hidden'),12000)}catch(e){title.textContent='เปิด Dashboard ไม่สำเร็จ';text.textContent=e.message||String(e);state.querySelector('.spinner')?.remove()}}
+  start();
+})();
+</script>
+</body>
+</html>

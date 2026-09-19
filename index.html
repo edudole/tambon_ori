@@ -361,6 +361,7 @@
     }
 </style>
   <link rel="stylesheet" href="index-fast-core.css?v=20260917-spinner-hidden-fix-v1">
+  <link rel="stylesheet" href="readbook-box.css?v=20260919-readbook-1">
   <style>
     #learningBaseModule.shopactivity-preview{padding:52px 0;background:linear-gradient(145deg,#f4f7fb,#fff 55%,#eff5ff)}
     #learningBaseModule .shopactivity-arrow{width:40px;height:40px;padding:0;border-radius:50%;background:#fff;color:#2563eb;font-size:28px}
@@ -745,8 +746,41 @@
   </div>
 </section>
 
+
+<!-- อ่านหนังสือสะสมเวลา: ดึงรายการหนังสือจาก Web App ที่ DATABSE_MAIN_ID > Sheet!D26 -->
+<section id="readBookTimeBox" class="readbook-section" aria-labelledby="readBookTimeTitle" data-admin-section="2">
+  <div class="container">
+    <div class="readbook-admin-actions admin-only" aria-label="จัดการหนังสือสะสมเวลา">
+      <a class="editwebsite-btn learning-admin-button admin-only" href="addreadbook.html" target="_blank" rel="noopener noreferrer">
+        <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+        <span>จัดการหนังสือ</span>
+      </a>
+    </div>
+
+    <div class="readbook-heading">
+      <div>
+        <div class="activity-box-kicker">★ อ่านหนังสือสะสมเวลา</div>
+        <h2 id="readBookTimeTitle">อ่านหนังสือสะสมเวลา</h2>
+        <p>เลือกหนังสือที่สนใจ อ่านสะสมเวลา ทำแบบทดสอบ และรับเกียรติบัตรเมื่อผ่านเกณฑ์</p>
+      </div>
+      <a class="cliproom-open-all readbook-open-all" href="readbook.html" target="_blank" rel="noopener noreferrer">ร่วมกิจกรรม</a>
+    </div>
+
+    <div class="readbook-slider">
+      <button id="readBookPrev" class="readbook-arrow readbook-prev" type="button" aria-label="หนังสือก่อนหน้า">‹</button>
+      <div class="readbook-viewport">
+        <div id="readBookTrack" class="readbook-track">
+          <div class="readbook-loading"><span class="readbook-spinner" aria-hidden="true"></span><span>กำลังโหลดหนังสือสะสมเวลา...</span></div>
+        </div>
+      </div>
+      <button id="readBookNext" class="readbook-arrow readbook-next" type="button" aria-label="หนังสือถัดไป">›</button>
+      <div id="readBookDots" class="readbook-dots" aria-label="หน้ารายการหนังสือ"></div>
+    </div>
+  </div>
+</section>
+
 <!-- แหล่งเรียนรู้ในพื้นที่: Box แยก ไม่กระทบระบบเดิม -->
-<section id="learningSourceBox" class="lsb-section" data-admin-section="2">
+<section id="learningSourceBox" class="lsb-section" data-admin-section="3">
   <div class="container">
 
     <div class="section-heading learning-source-heading">
@@ -790,7 +824,7 @@
 <!-- ห้องเรียนออนไลน์: ใช้ระบบ Login เดียวกับ accountBtn -->
 
 <!-- Best Practice Box: ข้อมูลจากชีต best_practice -->
-<section id="bestPracticeBox" class="best-practice-box-section" data-admin-section="3">
+<section id="bestPracticeBox" class="best-practice-box-section" data-admin-section="4">
   <div class="best-practice-box-container">
     <div class="best-practice-box-heading">
       <div>
@@ -823,7 +857,7 @@
 </section>
 
 <!-- FBpostBox: โพสต์ Facebook จากชีต facebook ของทุก Spreadsheet ตำบล -->
-<section id="FBpostBox" class="fbpost-box-section" aria-labelledby="fbpostBoxTitle" data-admin-section="4">
+<section id="FBpostBox" class="fbpost-box-section" aria-labelledby="fbpostBoxTitle" data-admin-section="5">
   <div class="fbpost-box-container">
     <div class="fbpost-box-heading fbpost-admin-heading">
       <div>
@@ -844,7 +878,7 @@
   </div>
 </section>
 
-<section id="cliproomBox" class="cliproom-section" aria-labelledby="cliproomTitle" data-admin-section="5">
+<section id="cliproomBox" class="cliproom-section" aria-labelledby="cliproomTitle" data-admin-section="6">
   <div class="container">
     <div class="cliproom-admin-actions admin-only" aria-label="จัดการหลักสูตรอบรมออนไลน์">
       <a class="cliproom-admin-course-button" href="admincliproom.html" target="_blank" rel="noopener noreferrer">
@@ -878,7 +912,7 @@
   </div>
 </section>
 
-<section id="learningBaseModule" class="shopactivity-preview" aria-labelledby="shopActivityTitle" data-admin-section="6">
+<section id="learningBaseModule" class="shopactivity-preview" aria-labelledby="shopActivityTitle" data-admin-section="7">
   <div class="container">
     <div class="shopactivity-admin-actions admin-only" aria-label="จัดการกิจกรรม">
       <a class="shopactivity-admin-edit-button" href="addactivity.html" target="_blank" rel="noopener noreferrer">
@@ -1305,5 +1339,6 @@
   </div>
 
   <script defer src="index-fast.js?v=20260917-section-spinner-v1"></script>
+  <script defer src="readbook-box.js?v=20260919-readbook-1"></script>
 </body>
 </html>
